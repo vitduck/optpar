@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
     printf("Timing: %10.3f (s)\n", elapsed_time); 
 
     // gflops 
-    gflops = (2.0*m*n*p - 1.0*m*p)*1E-9; 
+    gflops = (2.0*m*n*p)*1E-9; 
     printf("Performance: %10.3f (GFlops)\n", gflops/elapsed_time);
    
     // debug

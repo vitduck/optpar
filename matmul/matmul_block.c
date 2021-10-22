@@ -3,7 +3,7 @@
 #include <sys/time.h>
 
 #define SEED 1234
-#define BLOCK 32
+#define BLOCK 16
 #define min(x,y) (((x) < (y)) ? (x) : (y))
 
 float random_number(); 
