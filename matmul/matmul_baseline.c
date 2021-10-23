@@ -3,7 +3,6 @@
 #include <sys/time.h>
 
 #define SEED 1234
-#define BLOCK 16
 #define min(x,y) (((x) < (y)) ? (x) : (y))
 
 #if defined DOUBLE
@@ -32,9 +31,9 @@ int main(int argc, char **argv) {
     } 
 
     // allocation
-    PREC* A = (PREC*) _mm_malloc(sizeof(PREC) * m * p, 64); 
-    PREC* B = (PREC*) _mm_malloc(sizeof(PREC) * p * n, 64); 
-    PREC* C = (PREC*) _mm_malloc(sizeof(PREC) * m * n, 64); 
+    PREC* A = (PREC*) malloc(sizeof(PREC) * m * p); 
+    PREC* B = (PREC*) malloc(sizeof(PREC) * p * n); 
+    PREC* C = (PREC*) malloc(sizeof(PREC) * m * n); 
 
     //initialize A, B 
     srand(SEED); 
@@ -67,9 +66,9 @@ int main(int argc, char **argv) {
     print_matrix(C, m, n, "C ="); 
     
     //deallocate 
-    _mm_free(A); 
-    _mm_free(B); 
-    _mm_free(C); 
+    free(A); 
+    free(B); 
+    free(C); 
 
     return 0;
 }
@@ -84,21 +83,14 @@ void zero_matrix(PREC *matrix, int m, int n ) {
     for (int i = 0; i < m; i++)
         for (int j = 0; j < n; j++)
             matrix[i*n + j] = 0.0; 
-}
+} 
 
 void mat_mul(PREC* A, PREC* B, PREC* C, int m, int n, int p) { 
-    int i, j, k; 
-    int ii, jj, kk; 
-    for (ii = 0; ii < m; ii+=BLOCK)
-        for (jj = 0; jj < n; jj+=BLOCK)  
-            for (kk = 0; kk < p; kk+=BLOCK) 
-                for (i = ii; i < ii + BLOCK; i++) 
-                    for (k = kk; k < kk + BLOCK; k++) 
-                        #pragma nounroll 
-                        #pragma vector aligned
-                        # pragma omp simd reduction(+:C[i*n+j])
-                        for (j = jj; j < jj+ BLOCK; j++) 
-                            C[i*n+j] += A[i*p+k] * B[k*n+j]; 
+    for (int i = 0; i < m; i++)
+        for (int j = 0; j < n; j++)  
+            #pragma nounroll
+            for (int k = 0; k < p; k++) 
+                C[i*n+j] += A[i*p+k] * B[k*n+j]; 
 } 
 
 void print_matrix(PREC *matrix, int m , int n, const char *name ) { 

@@ -1,51 +1,60 @@
-CC = icc
-COMPFLAGS = -g -std=c11
+CC    = icc
+DPCPP = dpcpp
 
-CXXFLAGS = $(COMPFLAGS)
+CXXFLAGS = -g -std=c99 -O2
 
-ifeq ($(REPORT), yes)
-	CXXFLAGS+=-qopt-report=5
+ifdef REPORT
+	CXXFLAGS += -qopt-report=5
 endif
 
-all: baseline ikj simd aligned block
+# double precsion 
+ifdef DOUBLE 
+	CXXFLAGS += -DDOUBLE
+endif 
 
-sgemm:
-	$(CC) $(CXXFLAGS) -qmkl=parallel -L$(MKLROOT)/lib/intel64 sgemm.c -o sgemm.x
+# default target 
+ifndef VERSION 
+	VERSION = baseline
+endif
 
-baseline:
-	$(CC) $(CXXFLAGS) -O2 matmul.c -o matmul.x
+# default mode 
+ifndef MODE
+	MODE = survey
+endif
 
-ikj:
-	$(CC) $(CXXFLAGS) -O2 matmul_ikj.c -o matmul_ikj.x
+# use AVX512
+ifeq ($(VERSION),$(filter $(VERSION),aligned block))
+	CXXFLAGS +=-xCORE-AVX512 -qopt-zmm-usage=high
+endif
 
-simd: 
-	$(CC) $(CXXFLAGS) -O2 matmul_simd.c -o matmul_simd.x
+matmul:
+	$(CC) $(CXXFLAGS) matmul_$(VERSION).c -o matmul_$(VERSION).x
 
-aligned: 
-	$(CC) $(CXXFLAGS) -O2 -xCORE-AVX512 -qopt-zmm-usage=high matmul_aligned.c -o matmul_aligned.x
+gemm:
+	$(CC) $(CXXFLAGS) -mkl=parallel -L$(MKLROOT)/lib/intel64 gemm.c -o gemm.x
 
-block: 
-	$(CC) $(CXXFLAGS) -O2 -xCORE-AVX512 -qopt-zmm-usage=high matmul_block.c -o matmul_block.x
+survey:
+	advisor -collect survey -project-dir ./advisor_$(VERSION) -- ./matmul_$(VERSION).x 2048 2048 2048 
 
-roofline:
-	advisor -collect survey -project-dir ./roofline -- ./matmul.x 2048 2048 2048 
-	advisor -collect tripcounts -flop --enable-cache-simulation -project-dir ./roofline -- ./matmul.x 2048 2048 2048
+map: 
+	advisor -collect survey -project-dir ./advisor_$(VERSION) -- ./matmul_$(VERSION).x 2048 2048 2048 
+	advisor -collect map -mark-up-list matmul_$(VERSION).c:92  -project-dir ./advisor_$(VERSION) -- ./matmul_$(VERSION).x 2048 2048 2048 
 
-roofline_ikj:
-	advisor -collect survey -project-dir ./roofline_ikj -- ./matmul_ikj.x 2048 2048 2048 
-	advisor -collect tripcounts -flop --enable-cache-simulation -project-dir ./roofline_ikj -- ./matmul_ikj.x 2048 2048 2048
+mem:
+	tune -collect memory-access -knob analyze-mem-objects=true -result-dir ./mem_$(VERSION) -- ./matmul_$(VERSION).x 2048 2048 2048 
 
-roofline_simd:
-	advisor -collect survey -project-dir ./roofline_simd -- ./matmul_simd.x 2048 2048 2048 
-	advisor -collect tripcounts -flop --enable-cache-simulation -project-dir ./roofline_simd -- ./matmul_simd.x 2048 2048 2048
+roofline: 
+	advisor -collect survey -project-dir ./advisor_$(VERSION) -- ./matmul_$(VERSION).x 2048 2048 2048 
+	advisor -collect tripcounts -flop -enable-cache-simulation -project-dir ./advisor_$(VERSION) -- ./matmul_$(VERSION).x 2048 2048 2048
 
-roofline_aligned:
-	advisor -collect survey -project-dir ./roofline_aligned -- ./matmul_aligned.x 2048 2048 2048 
-	advisor -collect tripcounts -flop --enable-cache-simulation -project-dir ./roofline_aligned -- ./matmul_aligned.x 2048 2048 2048
+offload: 
+	icx -O2 -qopenmp -fopenmp-targets=spir64 matmul_offload.c -o matmul_offload.x
 
-roofline_block:
-	advisor -collect survey -project-dir ./roofline_block -- ./matmul_block.x 2048 2048 2048 
-	advisor -collect tripcounts -flop --enable-cache-simulation -project-dir ./roofline_block -- ./matmul_block.x 2048 2048 2048
+sycl:
+	dpcpp -O2 -g matmul_sycl.cpp -o matmul_sycl.x
+
+report:
+	advisor -report $(MODE) -project-dir ./advisor_$(VERSION)
 
 gen9:
 	advisor-python $(APM)/run_oa.py gen9 --config gen9_gt4 --collect basic --no-assume-dependencies -- ./matmul_block.x 4096 4096 4096

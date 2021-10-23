@@ -5,12 +5,18 @@
 #define SEED 1234
 #define min(x,y) (((x) < (y)) ? (x) : (y))
 
-float random_number(); 
+#if defined DOUBLE
+    typedef double PREC;
+#else
+    typedef float PREC;
+#endif
 
-void random_matrix(float*, int, int); 
-void zero_matrix(float*, int, int) ; 
-void print_matrix(float*, int , int, const char*); 
-void mat_mul(float*, float*, float*, int, int, int); 
+PREC random_number(); 
+
+void random_matrix(PREC*, int, int); 
+void zero_matrix(PREC*, int, int) ; 
+void print_matrix(PREC*, int , int, const char*); 
+void mat_mul(PREC*, PREC*, PREC*, int, int, int); 
 
 int main(int argc, char **argv) { 
     int    m, n, p; 
@@ -25,9 +31,9 @@ int main(int argc, char **argv) {
     } 
 
     // allocation
-    float* A = (float*) _mm_malloc(sizeof(float) * m * p, 64); 
-    float* B = (float*) _mm_malloc(sizeof(float) * p * n, 64); 
-    float* C = (float*) _mm_malloc(sizeof(float) * m * n, 64); 
+    PREC* A = (PREC*) _mm_malloc(sizeof(PREC) * m * p, 64); 
+    PREC* B = (PREC*) _mm_malloc(sizeof(PREC) * p * n, 64); 
+    PREC* C = (PREC*) _mm_malloc(sizeof(PREC) * m * n, 64); 
 
     //initialize A, B 
     srand(SEED); 
@@ -67,19 +73,19 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void random_matrix(float *matrix, int m, int n) { 
+void random_matrix(PREC *matrix, int m, int n) { 
     for (int i = 0; i < m; i++)
         for (int j = 0; j < n; j++)
             matrix[i*n + j] = random_number();
 } 
 
-void zero_matrix(float *matrix, int m, int n ) { 
+void zero_matrix(PREC *matrix, int m, int n ) { 
     for (int i = 0; i < m; i++)
         for (int j = 0; j < n; j++)
             matrix[i*n + j] = 0.0; 
 } 
 
-void mat_mul(float* A, float* B, float* C, int m, int n, int p) { 
+void mat_mul(PREC* A, PREC* B, PREC* C, int m, int n, int p) { 
     int i, j, k; 
     for (i = 0; i < m; i++)
         for (k = 0; k < p; k++)
@@ -90,7 +96,7 @@ void mat_mul(float* A, float* B, float* C, int m, int n, int p) {
                 C[i*n+j] += A[i*p+k] * B[k*n+j]; 
 } 
 
-void print_matrix(float *matrix, int m , int n, const char *name ) { 
+void print_matrix(PREC *matrix, int m , int n, const char *name ) { 
     printf("%s\n", name); 
     for (int i=0; i<min(m,4); i++) {
         for (int j=0; j<min(n,4); j++) {
@@ -100,6 +106,6 @@ void print_matrix(float *matrix, int m , int n, const char *name ) {
     }
 } 
 
-float random_number() { 
-    return ((float)rand() / (float)RAND_MAX);   
+PREC random_number() { 
+    return ((PREC)rand() / (PREC)RAND_MAX);   
 } 
